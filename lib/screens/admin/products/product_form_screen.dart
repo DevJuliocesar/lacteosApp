@@ -1,7 +1,9 @@
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:lacteos_app/models/product.dart';
+import 'package:lacteos_app/providers/config_provider.dart';
 import 'package:lacteos_app/providers/products_provider.dart';
 
 class ProductFormScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   @override
   void initState() {
     super.initState();
+    _priceCtrl.addListener(_recalculateSalePrice);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.isEditing) {
         final product =
@@ -39,6 +42,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       }
       _nameFocus.requestFocus();
     });
+  }
+
+  void _recalculateSalePrice() {
+    dev.log('[Form] _recalculateSalePrice fired, priceCtrl.text="${_priceCtrl.text}"');
+    final price = double.tryParse(_priceCtrl.text);
+    if (price == null) {
+      dev.log('[Form] precio inválido, saliendo');
+      return;
+    }
+    final percentage = context.read<ConfigProvider>().percentageSale;
+    dev.log('[Form] percentage=$percentage  price=$price  => sale=${price * percentage}');
+    final sale = price * percentage;
+    final formatted = sale % 1 == 0
+        ? sale.toStringAsFixed(0)
+        : sale.toStringAsFixed(2);
+    if (_salePriceCtrl.text != formatted) {
+      _salePriceCtrl.text = formatted;
+    }
   }
 
   void _populateForm(Product product) {
@@ -54,6 +75,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   @override
   void dispose() {
+    _priceCtrl.removeListener(_recalculateSalePrice);
     _nameFocus.dispose();
     _nameCtrl.dispose();
     _priceCtrl.dispose();
