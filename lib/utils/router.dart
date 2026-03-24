@@ -11,6 +11,10 @@ import 'package:lacteos_app/screens/admin/products/product_form_screen.dart';
 import 'package:lacteos_app/screens/admin/invoices/invoices_list_screen.dart';
 import 'package:lacteos_app/screens/admin/invoices/invoice_detail_screen.dart';
 import 'package:lacteos_app/screens/admin/users/users_screen.dart';
+import 'package:lacteos_app/screens/admin/rutas/rutas_list_screen.dart';
+import 'package:lacteos_app/screens/admin/rutas/ruta_form_screen.dart';
+import 'package:lacteos_app/screens/admin/rutas/rutas_dia_list_screen.dart';
+import 'package:lacteos_app/screens/admin/rutas/ruta_dia_form_screen.dart';
 import 'package:lacteos_app/screens/operario/operario_home_screen.dart';
 import 'package:lacteos_app/screens/operario/create_invoice_screen.dart';
 import 'package:lacteos_app/screens/operario/invoice_preview_screen.dart';
@@ -77,6 +81,31 @@ GoRouter buildRouter(AuthProvider auth) => GoRouter(
             GoRoute(
               path: 'users',
               builder: (_, __) => const UsersScreen(),
+            ),
+            GoRoute(
+              path: 'rutas',
+              builder: (_, __) => const RutasListScreen(),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (_, __) => const RutaFormScreen(),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  builder: (_, state) =>
+                      RutaFormScreen(rutaId: state.pathParameters['id']),
+                ),
+              ],
+            ),
+            GoRoute(
+              path: 'rutas-dia',
+              builder: (_, __) => const RutasDiaListScreen(),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (_, __) => const RutaDiaFormScreen(),
+                ),
+              ],
             ),
           ],
         ),

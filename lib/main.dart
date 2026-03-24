@@ -6,6 +6,8 @@ import 'package:lacteos_app/providers/auth_provider.dart';
 import 'package:lacteos_app/providers/config_provider.dart';
 import 'package:lacteos_app/providers/products_provider.dart';
 import 'package:lacteos_app/providers/invoices_provider.dart';
+import 'package:lacteos_app/providers/rutas_provider.dart';
+import 'package:lacteos_app/providers/users_provider.dart';
 import 'package:lacteos_app/theme/app_theme.dart';
 import 'package:lacteos_app/utils/router.dart';
 
@@ -29,6 +31,8 @@ class LacteosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConfigProvider()..loadConfig(), lazy: false),
         ChangeNotifierProvider(create: (_) => ProductsProvider()),
         ChangeNotifierProvider(create: (_) => InvoicesProvider()),
+        ChangeNotifierProvider(create: (_) => UsersProvider()),
+        ChangeNotifierProvider(create: (_) => RutasProvider()),
       ],
       child: Builder(
         builder: (context) {

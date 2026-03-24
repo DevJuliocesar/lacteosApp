@@ -62,8 +62,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           _MenuCard(
             icon: Icons.group_outlined,
             title: 'Operarios',
-            subtitle: 'Invitar operarios al sistema',
+            subtitle: 'Invitar y gestionar operarios',
             onTap: () => context.push('/admin/users'),
+          ),
+          const SizedBox(height: 12),
+          _MenuCard(
+            icon: Icons.route_outlined,
+            title: 'Rutas',
+            subtitle: 'Crear y asignar rutas a operarios',
+            onTap: () => context.push('/admin/rutas'),
+          ),
+          const SizedBox(height: 12),
+          _MenuCard(
+            icon: Icons.today_outlined,
+            title: 'Rutas del día',
+            subtitle: 'Planificar carga de productos por ruta',
+            onTap: () => context.push('/admin/rutas-dia'),
           ),
         ],
       ),
