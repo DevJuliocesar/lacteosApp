@@ -1,0 +1,8 @@
+# iOS-specific generated environment file
+Flutter/flutter_export_environment.sh
+
+# Keep potential default Xcode user configs trackable if present
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3

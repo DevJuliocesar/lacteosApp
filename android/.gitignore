@@ -1,0 +1,7 @@
+# Android-specific ignores not covered at repo root
+.cxx/
+
+# Signing artifacts
+key.properties
+**/*.keystore
+**/*.jks
