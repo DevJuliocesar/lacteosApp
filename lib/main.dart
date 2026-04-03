@@ -13,11 +13,53 @@ import 'package:lacteos_app/utils/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!SupabaseConfig.isConfigured) {
+    debugPrint(
+      'Falta configuración Supabase. Copiá secrets.json.example → secrets.json '
+      'y ejecutá: flutter run --dart-define-from-file=secrets.json',
+    );
+    runApp(const _MissingSupabaseConfigApp());
+    return;
+  }
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
   runApp(const LacteosApp());
+}
+
+class _MissingSupabaseConfigApp extends StatelessWidget {
+  const _MissingSupabaseConfigApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Configuración incompleta',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Definí SUPABASE_URL y SUPABASE_ANON_KEY al compilar.\n\n'
+                  '• Copiá secrets.json.example a secrets.json y completá los valores.\n'
+                  '• Luego: flutter run --dart-define-from-file=secrets.json\n\n'
+                  'En release:\n'
+                  'flutter build apk --dart-define-from-file=secrets.json',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class LacteosApp extends StatelessWidget {

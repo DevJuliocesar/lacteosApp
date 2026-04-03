@@ -31,6 +31,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final route = widget.dailyRoute;
+      if (route != null && !route.isOpen) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Esta ruta del día está cerrada; no puedes emitir facturas.',
+            ),
+          ),
+        );
+        context.pop();
+        return;
+      }
       context.read<ProductsProvider>().loadProducts();
       context.read<InvoicesProvider>().clearDraft();
     });

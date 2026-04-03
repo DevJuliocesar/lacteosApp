@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:gotrue/gotrue.dart' show AuthException;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lacteos_app/models/user.dart';
 import 'package:lacteos_app/services/auth_service.dart';
@@ -64,19 +65,43 @@ class AuthProvider extends ChangeNotifier {
   bool get needsPasswordSetup => _needsPasswordSetup;
 
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
     _error = null;
+    _isLoading = true;
     notifyListeners();
+
+    // Deja que el framework pinte el botón / overlay de carga antes del await de red.
+    await Future<void>.delayed(Duration.zero);
+
     try {
       await _service.login(email, password);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = _messageForAuthFailure(e);
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  static String _messageForAuthFailure(Object e) {
+    if (e is AuthException) {
+      final msg = e.message;
+      final code = e.code?.toLowerCase();
+      if (code == 'invalid_credentials' ||
+          msg.toLowerCase().contains('invalid login credentials')) {
+        return 'Correo o contraseña incorrectos.';
+      }
+      if (msg.toLowerCase().contains('email not confirmed')) {
+        return 'Debes confirmar tu correo electrónico antes de ingresar.';
+      }
+      if (msg.toLowerCase().contains('too many requests')) {
+        return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+      }
+      return msg;
+    }
+    final s = e.toString();
+    return s.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
   }
 
   Future<void> logout() async {

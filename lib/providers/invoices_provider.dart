@@ -42,6 +42,7 @@ class InvoicesProvider extends ChangeNotifier {
     if (_draftItems.containsKey(product.id)) {
       final existing = _draftItems[product.id]!;
       _draftItems[product.id] = InvoiceItem(
+        id: existing.id,
         productId: existing.productId,
         productName: existing.productName,
         unit: existing.unit,
@@ -103,5 +104,63 @@ class InvoicesProvider extends ChangeNotifier {
       );
       notifyListeners();
     }
+  }
+
+  /// Elimina factura y revierte stock en la ruta del día si aplica.
+  /// Devuelve [dailyRouteId] si hubo que actualizar rutas del día en UI.
+  Future<String?> deleteOperarioInvoice({
+    required String invoiceId,
+    required String operarioId,
+  }) async {
+    final index = _invoices.indexWhere((i) => i.id == invoiceId);
+    if (index == -1) {
+      throw Exception('Factura no encontrada.');
+    }
+    final inv = _invoices[index];
+    if (inv.operarioId != operarioId) {
+      throw Exception('No puedes eliminar esta factura.');
+    }
+    if (inv.status != InvoiceStatus.pendiente) {
+      throw Exception('Solo se pueden eliminar facturas pendientes.');
+    }
+    final dailyRouteId = inv.dailyRouteId;
+    await _service.deleteInvoice(invoiceId);
+    _invoices.removeAt(index);
+    notifyListeners();
+    return dailyRouteId;
+  }
+
+  /// Actualiza factura pendiente; ajusta disponible/vendido en ruta del día.
+  Future<String?> updateOperarioInvoice({
+    required String invoiceId,
+    required String operarioId,
+    required String clientName,
+    String? notes,
+    required List<InvoiceItem> items,
+  }) async {
+    final index = _invoices.indexWhere((i) => i.id == invoiceId);
+    if (index == -1) {
+      throw Exception('Factura no encontrada.');
+    }
+    final inv = _invoices[index];
+    if (inv.operarioId != operarioId) {
+      throw Exception('No puedes editar esta factura.');
+    }
+    if (inv.status != InvoiceStatus.pendiente) {
+      throw Exception('Solo se pueden editar facturas pendientes.');
+    }
+    if (items.isEmpty) {
+      throw Exception('La factura debe tener al menos un producto.');
+    }
+    final dailyRouteId = inv.dailyRouteId;
+    final updated = await _service.updateInvoice(
+      invoiceId: invoiceId,
+      clientName: clientName,
+      notes: notes,
+      items: items,
+    );
+    _invoices[index] = updated;
+    notifyListeners();
+    return dailyRouteId;
   }
 }

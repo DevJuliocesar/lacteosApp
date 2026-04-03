@@ -129,6 +129,7 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
                           _items.add(DailyRouteItem(
                             productId: product.id,
                             productName: product.name,
+                            unit: product.unit,
                             quantity: qty,
                             availableQuantity: qty,
                             soldQuantity: 0,

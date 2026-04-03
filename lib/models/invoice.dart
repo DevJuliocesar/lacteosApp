@@ -53,4 +53,23 @@ class Invoice {
         'status': status.name,
         'notes': notes,
       };
+
+  Invoice copyWith({
+    String? clientName,
+    DateTime? createdAt,
+    List<InvoiceItem>? items,
+    InvoiceStatus? status,
+    String? notes,
+  }) =>
+      Invoice(
+        id: id,
+        operarioId: operarioId,
+        operarioName: operarioName,
+        dailyRouteId: dailyRouteId,
+        clientName: clientName ?? this.clientName,
+        createdAt: createdAt ?? this.createdAt,
+        items: items ?? this.items,
+        status: status ?? this.status,
+        notes: notes ?? this.notes,
+      );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:lacteos_app/models/invoice.dart';
 import 'package:lacteos_app/providers/auth_provider.dart';
 import 'package:lacteos_app/providers/invoices_provider.dart';
 import 'package:lacteos_app/providers/rutas_provider.dart';
@@ -17,11 +18,13 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
   String? _selectedDailyRouteId;
   GoRouter? _router;
   String? _routerPath;
+  bool _scheduledClearInvalidSelection = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<InvoicesProvider>().loadInvoices();
       context.read<RutasProvider>().loadRoutes();
       context.read<RutasProvider>().loadDailyRoutes();
@@ -75,8 +78,6 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
     final routes = routesProvider.routes;
     final dailyRoutes = routesProvider.dailyRoutes;
     final invoices = context.watch<InvoicesProvider>().invoices;
-    final myInvoices =
-        invoices.where((i) => i.operarioId == user.id).toList();
 
     final assignedRouteIds = routes
         .where((r) => r.userIds.contains(user.id) && r.isActive)
@@ -100,8 +101,23 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
     final selectedValid = _selectedDailyRouteId != null &&
         assignedDailyRoutes.any((dr) => dr.id == _selectedDailyRouteId);
 
-    if (!selectedValid && _selectedDailyRouteId != null) {
+    final routeOpen =
+        selectedDailyRoute == null || selectedDailyRoute.isOpen;
+
+    final List<Invoice> invoicesThisRoute = selectedValid
+        ? invoices
+            .where((i) =>
+                i.operarioId == user.id &&
+                i.dailyRouteId == _selectedDailyRouteId)
+            .toList()
+        : <Invoice>[];
+
+    if (!selectedValid &&
+        _selectedDailyRouteId != null &&
+        !_scheduledClearInvalidSelection) {
+      _scheduledClearInvalidSelection = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scheduledClearInvalidSelection = false;
         if (!mounted) return;
         setState(() => _selectedDailyRouteId = null);
       });
@@ -128,8 +144,23 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
               children: [
                 Text('Hola, ${user.name}',
                     style: Theme.of(context).textTheme.titleLarge),
-                Text('Facturas generadas: ${myInvoices.length}',
-                    style: Theme.of(context).textTheme.bodyMedium),
+                if (assignedDailyRoutes.isEmpty)
+                  Text(
+                    'Facturas en jornada: —',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                else if (!selectedValid)
+                  Text(
+                    'Selecciona una ruta del día para ver sus facturas.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                  )
+                else
+                  Text(
+                    'Facturas en esta jornada: ${invoicesThisRoute.length}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 const SizedBox(height: 12),
                 Text('Ruta del día',
                     style: Theme.of(context).textTheme.titleSmall),
@@ -148,7 +179,8 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
                         .map((dr) => DropdownMenuItem(
                               value: dr.id,
                               child: Text(
-                                "${DateFormat('dd/MM/yyyy').format(dr.date)} - ${dr.routeName}",
+                                "${DateFormat('dd/MM/yyyy').format(dr.date)} — ${dr.routeName}"
+                                "${dr.isOpen ? '' : ' (cerrada)'}",
                               ),
                             ))
                         .toList(),
@@ -156,10 +188,21 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
                         setState(() => _selectedDailyRouteId = v),
                   ),
                   const SizedBox(height: 12),
+                  if (!routeOpen)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Esta ruta está cerrada: solo consulta. '
+                        'El disponible en camión ya fue retornado al depósito.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.orange.shade900,
+                            ),
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _selectedDailyRouteId == null
+                      onPressed: _selectedDailyRouteId == null || !routeOpen
                           ? null
                           : () {
                               final dailyRoute = assignedDailyRoutes
@@ -169,6 +212,23 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
                                   extra: dailyRoute);
                             },
                       child: const Text('Ir a factura'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _selectedDailyRouteId == null || !routeOpen
+                          ? null
+                          : () {
+                              final dailyRoute = assignedDailyRoutes
+                                  .firstWhere(
+                                      (dr) => dr.id == _selectedDailyRouteId);
+                              context.push('/operario/cerrar-dia',
+                                  extra: dailyRoute);
+                            },
+                      icon: const Icon(Icons.task_alt_outlined),
+                      label: const Text('Terminar el día'),
                     ),
                   ),
                 ],
@@ -216,27 +276,51 @@ class _OperarioHomeScreenState extends State<OperarioHomeScreen> {
                   }),
                   const Divider(height: 1),
                 ],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    'Mis facturas',
-                    style: Theme.of(context).textTheme.titleSmall,
+                if (assignedDailyRoutes.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      selectedValid && selectedDailyRoute != null
+                          ? 'Mis facturas · ${DateFormat('dd/MM/yyyy').format(selectedDailyRoute.date)} · ${selectedDailyRoute.routeName}'
+                          : 'Mis facturas',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
-                ),
-                if (myInvoices.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: Text('Aún no has generado facturas')),
-                  )
-                else
-                  ...myInvoices.map((inv) => ListTile(
-                        leading: const Icon(Icons.receipt_long),
-                        title: Text(inv.clientName),
-                        subtitle: Text(
-                            '${inv.items.length} productos  •  \$${inv.total.toStringAsFixed(2)}'),
-                        trailing: Text(inv.status.name,
-                            style: const TextStyle(fontSize: 12)),
-                      )),
+                  if (!selectedValid)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
+                      child: Text(
+                        'Elige una jornada en el campo de arriba para listar solo las facturas ligadas a esa ruta.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                      ),
+                    )
+                  else if (invoicesThisRoute.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'No hay facturas tuyas en esta jornada.',
+                          style: TextStyle(color: Colors.grey.shade600),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    ...invoicesThisRoute.map((inv) => ListTile(
+                          leading: const Icon(Icons.receipt_long),
+                          title: Text(inv.clientName),
+                          subtitle: Text(
+                              '${inv.items.length} productos  •  \$${inv.total.toStringAsFixed(2)}'),
+                          trailing: Text(inv.status.name,
+                              style: const TextStyle(fontSize: 12)),
+                          onTap: () =>
+                              context.push('/operario/factura/${inv.id}'),
+                        )),
+                ],
                 ],
               ),
             ),

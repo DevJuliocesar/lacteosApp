@@ -95,4 +95,16 @@ class RutasProvider extends ChangeNotifier {
     _dailyRoutes.removeWhere((r) => r.id == id);
     notifyListeners();
   }
+
+  /// Cierra la jornada: retorna disponible al depósito y bloquea nuevas facturas.
+  Future<void> closeDailyRoute(
+    String dailyRouteId, {
+    List<Map<String, dynamic>> extraExpenses = const [],
+  }) async {
+    await _service.closeDailyRoute(
+      dailyRouteId,
+      extraExpenses: extraExpenses,
+    );
+    await refreshDailyRouteById(dailyRouteId);
+  }
 }

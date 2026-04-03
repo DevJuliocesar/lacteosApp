@@ -1,6 +1,7 @@
 import 'package:lacteos_app/models/product.dart';
 
 class InvoiceItem {
+  final String? id;
   final String productId;
   final String productName;
   final String unit;
@@ -8,6 +9,7 @@ class InvoiceItem {
   final double unitPrice;
 
   const InvoiceItem({
+    this.id,
     required this.productId,
     required this.productName,
     required this.unit,
@@ -27,6 +29,7 @@ class InvoiceItem {
       );
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) => InvoiceItem(
+        id: json['id'] as String?,
         productId: json['product_id'],
         productName: json['product_name'],
         unit: json['unit'],
@@ -35,10 +38,28 @@ class InvoiceItem {
       );
 
   Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
         'product_id': productId,
         'product_name': productName,
         'unit': unit,
         'quantity': quantity,
         'unit_price': unitPrice,
       };
+
+  InvoiceItem copyWith({
+    String? id,
+    String? productId,
+    String? productName,
+    String? unit,
+    double? quantity,
+    double? unitPrice,
+  }) =>
+      InvoiceItem(
+        id: id ?? this.id,
+        productId: productId ?? this.productId,
+        productName: productName ?? this.productName,
+        unit: unit ?? this.unit,
+        quantity: quantity ?? this.quantity,
+        unitPrice: unitPrice ?? this.unitPrice,
+      );
 }

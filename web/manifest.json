@@ -1,11 +1,11 @@
 {
-    "name": "lacteos_app",
-    "short_name": "lacteos_app",
+    "name": "Lácteos",
+    "short_name": "Lácteos",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Gestión de rutas, facturación y productos lácteos.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

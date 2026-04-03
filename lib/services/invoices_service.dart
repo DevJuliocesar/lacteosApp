@@ -5,6 +5,23 @@ import 'package:lacteos_app/models/invoice_item.dart';
 class InvoicesService {
   final _client = Supabase.instance.client;
 
+  Future<void> _ensureDailyRouteOpen(String? dailyRouteId) async {
+    if (dailyRouteId == null) return;
+    final row = await _client
+        .from('daily_routes')
+        .select('status')
+        .eq('id', dailyRouteId)
+        .maybeSingle();
+    if (row == null) {
+      throw Exception('Ruta del día no encontrada.');
+    }
+    if (row['status']?.toString() == 'cerrada') {
+      throw Exception(
+        'La ruta del día está cerrada. No se pueden crear ni modificar facturas.',
+      );
+    }
+  }
+
   Future<List<Invoice>> getInvoices() async {
     final data = await _client
         .from('invoices')
@@ -21,6 +38,7 @@ class InvoicesService {
     String? dailyRouteId,
     String? notes,
   }) async {
+    await _ensureDailyRouteOpen(dailyRouteId);
     if (dailyRouteId != null) {
       await _validateAvailability(dailyRouteId, items);
     }
@@ -153,5 +171,152 @@ class InvoicesService {
         );
       }
     }
+  }
+
+  Map<String, double> _qtyByProduct(List<InvoiceItem> items) {
+    final m = <String, double>{};
+    for (final item in items) {
+      m[item.productId] = (m[item.productId] ?? 0) + item.quantity;
+    }
+    return m;
+  }
+
+  Future<Invoice> getInvoiceById(String invoiceId) async {
+    final data = await _client
+        .from('invoices')
+        .select('*, invoice_items(*)')
+        .eq('id', invoiceId)
+        .single();
+    return Invoice.fromJson(data);
+  }
+
+  /// Devuelve a la ruta del día lo vendido en la factura (disponible ↑, vendido ↓).
+  Future<void> _returnQuantitiesToDailyRoute(
+      String dailyRouteId, List<InvoiceItem> items) async {
+    final qtyBy = _qtyByProduct(items);
+    for (final entry in qtyBy.entries) {
+      final productId = entry.key;
+      final q = entry.value;
+      final row = await _client
+          .from('daily_route_products')
+          .select('available_quantity, sold_quantity')
+          .eq('daily_route_id', dailyRouteId)
+          .eq('product_id', productId)
+          .maybeSingle();
+      if (row == null) continue;
+      final av = (row['available_quantity'] as num).toDouble();
+      final sold = (row['sold_quantity'] as num).toDouble();
+      final newSold = sold - q;
+      final rows = await _client
+          .from('daily_route_products')
+          .update({
+            'available_quantity': av + q,
+            'sold_quantity': newSold < 0 ? 0 : newSold,
+          })
+          .eq('daily_route_id', dailyRouteId)
+          .eq('product_id', productId)
+          .select();
+      if ((rows as List).isEmpty) {
+        throw Exception(
+            'No se pudo restaurar stock de ruta del día para $productId.');
+      }
+    }
+  }
+
+  Future<void> _applyDailyRouteDelta(
+    String dailyRouteId,
+    Map<String, double> oldQty,
+    Map<String, double> newQty,
+  ) async {
+    final keys = {...oldQty.keys, ...newQty.keys};
+    for (final k in keys) {
+      final oldQ = oldQty[k] ?? 0;
+      final newQ = newQty[k] ?? 0;
+      final delta = newQ - oldQ;
+      if (delta == 0) continue;
+
+      final row = await _client
+          .from('daily_route_products')
+          .select('available_quantity, sold_quantity')
+          .eq('daily_route_id', dailyRouteId)
+          .eq('product_id', k)
+          .maybeSingle();
+      if (row == null) {
+        throw Exception(
+            'El producto no está en la ruta del día; no se puede ajustar la factura.');
+      }
+      final av = (row['available_quantity'] as num).toDouble();
+      final sold = (row['sold_quantity'] as num).toDouble();
+
+      if (delta > 0 && av < delta) {
+        throw Exception(
+          'Stock insuficiente en la ruta del día para aumentar la cantidad. '
+          'Disponible: ${av.toStringAsFixed(2)}, necesitas ${delta.toStringAsFixed(2)} extra.',
+        );
+      }
+      if (delta < 0 && sold < -delta) {
+        throw Exception(
+            'No se puede reducir tanto la cantidad: solo hay ${sold.toStringAsFixed(2)} vendidos registrados en la ruta.');
+      }
+
+      final rows = await _client
+          .from('daily_route_products')
+          .update({
+            'available_quantity': av - delta,
+            'sold_quantity': sold + delta,
+          })
+          .eq('daily_route_id', dailyRouteId)
+          .eq('product_id', k)
+          .select();
+      if ((rows as List).isEmpty) {
+        throw Exception('No se pudo actualizar la ruta del día para el producto $k.');
+      }
+    }
+  }
+
+  Future<void> deleteInvoice(String invoiceId) async {
+    final inv = await getInvoiceById(invoiceId);
+    await _ensureDailyRouteOpen(inv.dailyRouteId);
+    if (inv.dailyRouteId != null && inv.items.isNotEmpty) {
+      await _returnQuantitiesToDailyRoute(inv.dailyRouteId!, inv.items);
+    }
+    await _client.from('invoice_items').delete().eq('invoice_id', invoiceId);
+    await _client.from('invoices').delete().eq('id', invoiceId);
+  }
+
+  Future<Invoice> updateInvoice({
+    required String invoiceId,
+    required String clientName,
+    String? notes,
+    required List<InvoiceItem> items,
+  }) async {
+    final old = await getInvoiceById(invoiceId);
+    await _ensureDailyRouteOpen(old.dailyRouteId);
+    final oldMap = _qtyByProduct(old.items);
+    final newMap = _qtyByProduct(items);
+    if (old.dailyRouteId != null) {
+      await _applyDailyRouteDelta(old.dailyRouteId!, oldMap, newMap);
+    }
+
+    await _client.from('invoice_items').delete().eq('invoice_id', invoiceId);
+    if (items.isNotEmpty) {
+      await _client.from('invoice_items').insert(
+            items
+                .map((e) {
+                  final m = Map<String, dynamic>.from(e.toJson());
+                  m.remove('id');
+                  m['invoice_id'] = invoiceId;
+                  return m;
+                })
+                .toList(),
+          );
+    }
+
+    await _client.from('invoices').update({
+      'client_name': clientName,
+      'notes': notes,
+    }).eq('id', invoiceId);
+
+    return getInvoiceById(invoiceId);
   }
 }

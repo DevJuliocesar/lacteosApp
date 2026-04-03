@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Obligatorio en release: debug/profile añaden esto solo en esas variantes. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="lacteos_app"
+        android:label="Lácteos"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

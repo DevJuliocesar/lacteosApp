@@ -67,7 +67,10 @@ class _DailyRouteTile extends StatelessWidget {
         child: const Icon(Icons.today_outlined, color: Colors.blue),
       ),
       title: Text(dailyRoute.routeName),
-      subtitle: Text('$dateStr  •  ${dailyRoute.items.length} producto(s)'),
+      subtitle: Text(
+        '$dateStr  •  ${dailyRoute.items.length} producto(s)'
+        '${dailyRoute.isOpen ? '' : '  •  Cerrada'}',
+      ),
       trailing: _DeleteDailyRouteButton(dailyRoute: dailyRoute),
       onTap: () => _showDetail(context, dailyRoute),
     );

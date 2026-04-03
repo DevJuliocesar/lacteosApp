@@ -56,7 +56,7 @@ class RutasService {
   // ---------- Daily routes ----------
 
   static const String _dailyRouteProductsSelect =
-      'product_id, quantity, available_quantity, sold_quantity, returned_quantity, products(name)';
+      'product_id, quantity, available_quantity, sold_quantity, returned_quantity, products(name, unit)';
 
   Future<List<DailyRoute>> getDailyRoutes() async {
     final data = await _client
@@ -144,5 +144,20 @@ class RutasService {
 
   Future<void> deleteDailyRoute(String id) async {
     await _client.from('daily_routes').delete().eq('id', id);
+  }
+
+  /// Devuelve al stock el disponible en camión; marca la ruta como cerrada (RPC en Supabase).
+  /// [extraExpenses] filas con descripción y monto (vacías se omiten en el cliente).
+  Future<void> closeDailyRoute(
+    String dailyRouteId, {
+    List<Map<String, dynamic>> extraExpenses = const [],
+  }) async {
+    await _client.rpc<void>(
+      'close_daily_route',
+      params: {
+        'p_daily_route_id': dailyRouteId,
+        'p_expenses': extraExpenses,
+      },
+    );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lacteos_app/models/user.dart';
 import 'package:lacteos_app/providers/auth_provider.dart';
@@ -16,6 +17,9 @@ import 'package:lacteos_app/screens/admin/rutas/ruta_dia_form_screen.dart';
 import 'package:lacteos_app/screens/operario/operario_home_screen.dart';
 import 'package:lacteos_app/screens/operario/create_invoice_screen.dart';
 import 'package:lacteos_app/screens/operario/invoice_preview_screen.dart';
+import 'package:lacteos_app/screens/operario/operario_invoice_detail_screen.dart';
+import 'package:lacteos_app/screens/operario/operario_invoice_edit_screen.dart';
+import 'package:lacteos_app/screens/operario/operario_end_day_screen.dart';
 import 'package:lacteos_app/models/ruta_dia.dart';
 
 GoRouter buildRouter(AuthProvider auth) => GoRouter(
@@ -123,8 +127,35 @@ GoRouter buildRouter(AuthProvider auth) => GoRouter(
               },
             ),
             GoRoute(
+              path: 'cerrar-dia',
+              builder: (context, state) {
+                final extra = state.extra;
+                final dailyRoute = extra is DailyRoute ? extra : null;
+                if (dailyRoute == null) {
+                  return const Scaffold(
+                    body: Center(child: Text('Ruta del día no válida')),
+                  );
+                }
+                return OperarioEndDayScreen(dailyRoute: dailyRoute);
+              },
+            ),
+            GoRoute(
               path: 'preview',
               builder: (_, __) => const InvoicePreviewScreen(),
+            ),
+            GoRoute(
+              path: 'factura/:id',
+              builder: (context, state) => OperarioInvoiceDetailScreen(
+                invoiceId: state.pathParameters['id']!,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'editar',
+                  builder: (context, state) => OperarioInvoiceEditScreen(
+                    invoiceId: state.pathParameters['id']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

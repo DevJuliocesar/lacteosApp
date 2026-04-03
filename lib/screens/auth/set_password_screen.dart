@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lacteos_app/constants/app_assets.dart';
 import 'package:lacteos_app/providers/auth_provider.dart';
 
 class SetPasswordScreen extends StatefulWidget {
@@ -56,7 +57,16 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
+              Center(
+                child: Image.asset(
+                  AppAssets.appIcon,
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Crea tu contraseña',
                 style: theme.textTheme.headlineMedium
