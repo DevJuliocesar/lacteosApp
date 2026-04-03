@@ -68,12 +68,14 @@ class InvoicesProvider extends ChangeNotifier {
     required String operarioId,
     required String operarioName,
     required String clientName,
+    String? dailyRouteId,
     String? notes,
   }) async {
     final invoice = await _service.createInvoice(
       operarioId: operarioId,
       operarioName: operarioName,
       clientName: clientName,
+      dailyRouteId: dailyRouteId,
       items: draftItems,
       notes: notes,
     );
@@ -92,6 +94,7 @@ class InvoicesProvider extends ChangeNotifier {
         id: inv.id,
         operarioId: inv.operarioId,
         operarioName: inv.operarioName,
+        dailyRouteId: inv.dailyRouteId,
         clientName: inv.clientName,
         createdAt: inv.createdAt,
         items: inv.items,

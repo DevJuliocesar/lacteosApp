@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:lacteos_app/models/product.dart';
+import 'package:lacteos_app/models/ruta_dia.dart';
 import 'package:lacteos_app/providers/invoices_provider.dart';
 import 'package:lacteos_app/providers/products_provider.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
-  const CreateInvoiceScreen({super.key});
+  final DailyRoute? dailyRoute;
+
+  const CreateInvoiceScreen({super.key, this.dailyRoute});
 
   @override
   State<CreateInvoiceScreen> createState() => _CreateInvoiceScreenState();
@@ -15,6 +18,14 @@ class CreateInvoiceScreen extends StatefulWidget {
 class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final _clientCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  bool get _hasDailyRoute => widget.dailyRoute != null;
+  late final List<String> _allowedProductIds =
+      widget.dailyRoute?.items.map((i) => i.productId).toSet().toList() ??
+          <String>[];
+  late final Map<String, double> _availableByProduct = {
+    for (final item in widget.dailyRoute?.items ?? <DailyRouteItem>[])
+      item.productId: item.availableQuantity,
+  };
 
   @override
   void initState() {
@@ -33,13 +44,22 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _showAddProductDialog(BuildContext context) {
-    final products = context.read<ProductsProvider>().activeProducts;
+    final productsProvider = context.read<ProductsProvider>();
+    final activeProducts = productsProvider.activeProducts;
+    final products = _hasDailyRoute
+        ? activeProducts
+            .where((p) => _allowedProductIds.contains(p.id))
+            .toList()
+        : activeProducts;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => _AddProductSheet(products: products),
+      builder: (_) => _AddProductSheet(
+        products: products,
+        availableByProduct: _hasDailyRoute ? _availableByProduct : null,
+      ),
     );
   }
 
@@ -51,6 +71,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       appBar: AppBar(title: const Text('Nueva factura')),
       body: Column(
         children: [
+          if (_hasDailyRoute)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Text(
+                'Ruta del día: ${widget.dailyRoute!.routeName}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -144,6 +172,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       context.push('/operario/preview', extra: {
                         'clientName': _clientCtrl.text.trim(),
                         'notes': _notesCtrl.text.trim(),
+                        'dailyRouteId': widget.dailyRoute?.id,
                       });
                     },
                     child: const Text('Revisar factura'),
@@ -159,8 +188,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
 class _AddProductSheet extends StatefulWidget {
   final List<Product> products;
+  final Map<String, double>? availableByProduct;
 
-  const _AddProductSheet({required this.products});
+  const _AddProductSheet({
+    required this.products,
+    this.availableByProduct,
+  });
 
   @override
   State<_AddProductSheet> createState() => _AddProductSheetState();
@@ -169,6 +202,7 @@ class _AddProductSheet extends StatefulWidget {
 class _AddProductSheetState extends State<_AddProductSheet> {
   Product? _selected;
   final _qtyCtrl = TextEditingController(text: '1');
+  String? _error;
 
   @override
   void dispose() {
@@ -211,8 +245,32 @@ class _AddProductSheetState extends State<_AddProductSheet> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                if (_selected == null) return;
-                final qty = double.tryParse(_qtyCtrl.text) ?? 1;
+                if (_selected == null) {
+                  setState(() => _error = 'Selecciona un producto');
+                  return;
+                }
+                final qty = double.tryParse(_qtyCtrl.text);
+                if (qty == null || qty <= 0) {
+                  setState(() => _error = 'Ingresa una cantidad valida');
+                  return;
+                }
+
+                final available = widget.availableByProduct?[_selected!.id];
+                if (available != null) {
+                  final currentInDraft = context
+                      .read<InvoicesProvider>()
+                      .draftItems
+                      .where((i) => i.productId == _selected!.id)
+                      .fold<double>(0, (sum, i) => sum + i.quantity);
+                  if (currentInDraft + qty > available) {
+                    setState(() {
+                      _error =
+                          'Stock insuficiente. Disponible: ${available.toStringAsFixed(2)} ${_selected!.unit}.';
+                    });
+                    return;
+                  }
+                }
+
                 context
                     .read<InvoicesProvider>()
                     .addToDraft(_selected!, qty);
@@ -221,6 +279,14 @@ class _AddProductSheetState extends State<_AddProductSheet> {
               child: const Text('Agregar'),
             ),
           ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
           const SizedBox(height: 16),
         ],
       ),

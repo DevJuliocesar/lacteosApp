@@ -6,6 +6,7 @@ class Invoice {
   final String id;
   final String operarioId;
   final String operarioName;
+  final String? dailyRouteId;
   final String clientName;
   final DateTime createdAt;
   final List<InvoiceItem> items;
@@ -16,6 +17,7 @@ class Invoice {
     required this.id,
     required this.operarioId,
     required this.operarioName,
+    this.dailyRouteId,
     required this.clientName,
     required this.createdAt,
     required this.items,
@@ -29,6 +31,7 @@ class Invoice {
         id: json['id'],
         operarioId: json['operario_id'],
         operarioName: json['operario_name'],
+        dailyRouteId: json['daily_route_id'],
         clientName: json['client_name'],
         createdAt: DateTime.parse(json['created_at']),
         items: (json['invoice_items'] as List? ?? [])
@@ -44,6 +47,7 @@ class Invoice {
   Map<String, dynamic> toJson() => {
         'operario_id': operarioId,
         'operario_name': operarioName,
+        if (dailyRouteId != null) 'daily_route_id': dailyRouteId,
         'client_name': clientName,
         'created_at': createdAt.toIso8601String(),
         'status': status.name,

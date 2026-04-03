@@ -65,6 +65,24 @@ class RutasProvider extends ChangeNotifier {
     }
   }
 
+  /// Sustituye o inserta una ruta del día leída de Supabase (disponibilidad / vendido actual).
+  Future<void> refreshDailyRouteById(String id) async {
+    try {
+      final fresh = await _service.getDailyRouteById(id);
+      final i = _dailyRoutes.indexWhere((r) => r.id == id);
+      if (i >= 0) {
+        _dailyRoutes = List<DailyRoute>.from(_dailyRoutes)..[i] = fresh;
+      } else {
+        _dailyRoutes = [fresh, ..._dailyRoutes];
+      }
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error al actualizar ruta del día: $e';
+      notifyListeners();
+      await loadDailyRoutes();
+    }
+  }
+
   Future<void> createDailyRoute(
       String routeId, DateTime date, List<DailyRouteItem> items) async {
     final created = await _service.createDailyRoute(routeId, date, items);

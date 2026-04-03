@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:lacteos_app/models/ruta_dia.dart';
+import 'package:lacteos_app/models/user.dart';
 import 'package:lacteos_app/providers/products_provider.dart';
+import 'package:lacteos_app/providers/auth_provider.dart';
 import 'package:lacteos_app/providers/rutas_provider.dart';
 
 class RutaDiaFormScreen extends StatefulWidget {
@@ -38,65 +40,112 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  void _showAddProductDialog() {
+  Future<void> _showAddProductDialog() async {
     final products = context.read<ProductsProvider>().activeProducts;
+    final existingProductIds = _items.map((e) => e.productId).toSet();
+    final availableProducts = products
+        .where((p) => !existingProductIds.contains(p.id))
+        .toList();
     String? productId;
     final qtyCtrl = TextEditingController();
 
-    showDialog(
+    await showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Agregar producto'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Producto'),
-                items: products
-                    .map((p) => DropdownMenuItem(
-                          value: p.id,
-                          child: Text(p.name),
-                        ))
-                    .toList(),
-                onChanged: (v) => setDialogState(() => productId = v),
+      builder: (ctx) {
+        String? qtyError;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('Agregar producto'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (availableProducts.isEmpty)
+                  const Text(
+                    'Ya agregaste todos los productos disponibles.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Producto'),
+                  items: availableProducts
+                      .map((p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text('${p.name} (stock ${p.stock.toStringAsFixed(2)})'),
+                          ))
+                      .toList(),
+                  onChanged: availableProducts.isEmpty
+                      ? null
+                      : (v) => setDialogState(() {
+                            productId = v;
+                            qtyError = null;
+                          }),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: qtyCtrl,
+                  decoration: const InputDecoration(labelText: 'Cantidad'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                  onChanged: (_) => setDialogState(() => qtyError = null),
+                ),
+                if (qtyError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      qtyError!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Cancelar'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: qtyCtrl,
-                decoration: const InputDecoration(labelText: 'Cantidad'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
+              FilledButton(
+                onPressed: availableProducts.isEmpty
+                    ? null
+                    : () {
+                        final qty = double.tryParse(qtyCtrl.text);
+                        if (productId == null || qty == null || qty <= 0) {
+                          setDialogState(() {
+                            qtyError = 'Ingresa una cantidad válida mayor a 0';
+                          });
+                          return;
+                        }
+                        final product =
+                            availableProducts.firstWhere((p) => p.id == productId);
+                        if (qty > product.stock) {
+                          setDialogState(() {
+                            qtyError =
+                                'Stock insuficiente. Disponible: ${product.stock.toStringAsFixed(2)} ${product.unit}.';
+                          });
+                          return;
+                        }
+                        setState(() {
+                          _items.add(DailyRouteItem(
+                            productId: product.id,
+                            productName: product.name,
+                            quantity: qty,
+                            availableQuantity: qty,
+                            soldQuantity: 0,
+                            returnedQuantity: 0,
+                          ));
+                        });
+                        Navigator.pop(ctx);
+                      },
+                child: const Text('Agregar'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final qty = double.tryParse(qtyCtrl.text);
-                if (productId == null || qty == null || qty <= 0) return;
-                final product =
-                    products.firstWhere((p) => p.id == productId);
-                setState(() {
-                  _items.add(DailyRouteItem(
-                    productId: product.id,
-                    productName: product.name,
-                    quantity: qty,
-                  ));
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('Agregar'),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
+
+    qtyCtrl.dispose();
   }
 
   Future<void> _submit() async {
@@ -106,6 +155,24 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
       );
       return;
     }
+
+    final user = context.read<AuthProvider>().user;
+    if (user?.role == UserRole.operario) {
+      final operarioId = user!.id;
+      final allowed = context
+          .read<RutasProvider>()
+          .routes
+          .any(
+              (r) => r.id == _selectedRouteId && r.userIds.contains(operarioId));
+
+      if (!allowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No tienes permisos para esa ruta')),
+        );
+        return;
+      }
+    }
+
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Agrega al menos un producto')),
@@ -117,7 +184,10 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
       await context
           .read<RutasProvider>()
           .createDailyRoute(_selectedRouteId!, _selectedDate, _items);
-      if (mounted) context.pop();
+      if (mounted) {
+        context.read<ProductsProvider>().loadProducts();
+        context.pop();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,11 +201,27 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final routes = context
+    final allActiveRoutes = context
         .watch<RutasProvider>()
         .routes
         .where((r) => r.isActive)
         .toList();
+
+    final user = context.watch<AuthProvider>().user;
+    final isOperario = user?.role == UserRole.operario;
+    final routes = isOperario
+        ? allActiveRoutes.where((r) => r.userIds.contains(user!.id)).toList()
+        : allActiveRoutes;
+
+    final selectedValid = _selectedRouteId == null ||
+        routes.any((r) => r.id == _selectedRouteId);
+
+    if (!selectedValid && _selectedRouteId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _selectedRouteId = null);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva ruta del día')),
@@ -143,14 +229,24 @@ class _RutaDiaFormScreenState extends State<RutaDiaFormScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedRouteId,
+            value: _selectedRouteId != null && selectedValid
+                ? _selectedRouteId
+                : null,
             decoration: const InputDecoration(labelText: 'Ruta'),
             items: routes
                 .map((r) =>
                     DropdownMenuItem(value: r.id, child: Text(r.name)))
                 .toList(),
-            onChanged: (v) => setState(() => _selectedRouteId = v),
+            onChanged: routes.isEmpty ? null : (v) => setState(() => _selectedRouteId = v),
           ),
+          if (routes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Text(
+                'No tienes rutas asignadas.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
           const SizedBox(height: 16),
           ListTile(
             contentPadding: EdgeInsets.zero,

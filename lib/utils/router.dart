@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:lacteos_app/models/user.dart';
 import 'package:lacteos_app/providers/auth_provider.dart';
 import 'package:lacteos_app/screens/auth/login_screen.dart';
@@ -18,6 +16,7 @@ import 'package:lacteos_app/screens/admin/rutas/ruta_dia_form_screen.dart';
 import 'package:lacteos_app/screens/operario/operario_home_screen.dart';
 import 'package:lacteos_app/screens/operario/create_invoice_screen.dart';
 import 'package:lacteos_app/screens/operario/invoice_preview_screen.dart';
+import 'package:lacteos_app/models/ruta_dia.dart';
 
 GoRouter buildRouter(AuthProvider auth) => GoRouter(
       initialLocation: '/login',
@@ -117,7 +116,11 @@ GoRouter buildRouter(AuthProvider auth) => GoRouter(
           routes: [
             GoRoute(
               path: 'nueva-factura',
-              builder: (_, __) => const CreateInvoiceScreen(),
+              builder: (context, state) {
+                final extra = state.extra;
+                final dailyRoute = extra is DailyRoute ? extra : null;
+                return CreateInvoiceScreen(dailyRoute: dailyRoute);
+              },
             ),
             GoRoute(
               path: 'preview',

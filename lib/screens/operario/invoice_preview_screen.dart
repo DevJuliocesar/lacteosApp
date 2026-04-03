@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:lacteos_app/providers/auth_provider.dart';
 import 'package:lacteos_app/providers/invoices_provider.dart';
+import 'package:lacteos_app/providers/rutas_provider.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   const InvoicePreviewScreen({super.key});
@@ -16,26 +17,35 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
   bool _isSaving = false;
 
   Future<void> _confirm(
-      BuildContext context, String clientName, String notes) async {
+      BuildContext context, String clientName, String notes, String? dailyRouteId) async {
     setState(() => _isSaving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final goRouter = GoRouter.of(context);
     try {
       final user = context.read<AuthProvider>().user!;
-      await context.read<InvoicesProvider>().submitInvoice(
+      final invoices = context.read<InvoicesProvider>();
+      final rutas = context.read<RutasProvider>();
+      await invoices.submitInvoice(
             operarioId: user.id,
             operarioName: user.name,
             clientName: clientName,
+            dailyRouteId: dailyRouteId,
             notes: notes.isEmpty ? null : notes,
           );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Factura generada correctamente')),
-        );
-        context.go('/operario');
+      if (!mounted) return;
+      if (dailyRouteId != null) {
+        await rutas.loadDailyRoutes();
+        if (!mounted) return;
+        await rutas.refreshDailyRouteById(dailyRouteId);
       }
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Factura generada correctamente')),
+      );
+      goRouter.go('/operario');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -44,9 +54,13 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final extra = GoRouterState.of(context).extra as Map<String, String>?;
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
     final clientName = extra?['clientName'] ?? '';
     final notes = extra?['notes'] ?? '';
+    final rawDailyRouteId = extra?['dailyRouteId'];
+    final dailyRouteId = rawDailyRouteId == null || rawDailyRouteId.toString().isEmpty
+        ? null
+        : rawDailyRouteId.toString();
     final draft = context.watch<InvoicesProvider>();
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
 
@@ -113,7 +127,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed:
-                        _isSaving ? null : () => _confirm(context, clientName, notes),
+                        _isSaving ? null : () => _confirm(context, clientName, notes, dailyRouteId),
                     child: _isSaving
                         ? const SizedBox(
                             height: 20,
