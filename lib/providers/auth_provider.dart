@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gotrue/gotrue.dart' show AuthException;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lacteos_app/models/user.dart';
 import 'package:lacteos_app/services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
+  static const _lastLoginEmailKey = 'last_login_email';
   final _supabase = sb.Supabase.instance.client;
   final _service = AuthService();
 
@@ -106,6 +108,23 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _service.logout();
+  }
+
+  Future<String?> getLastLoginEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_lastLoginEmailKey)?.trim();
+    if (saved == null || saved.isEmpty) return null;
+    return saved;
+  }
+
+  Future<void> setRememberedEmail(String? email) async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = email?.trim() ?? '';
+    if (value.isEmpty) {
+      await prefs.remove(_lastLoginEmailKey);
+      return;
+    }
+    await prefs.setString(_lastLoginEmailKey, value);
   }
 
   void markPasswordSetup() {
