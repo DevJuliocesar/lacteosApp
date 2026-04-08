@@ -7,6 +7,8 @@ class InvoiceItem {
   final String unit;
   final double quantity;
   final double unitPrice;
+  final bool isQualityReturn;
+  final bool isExpirationReturn;
 
   const InvoiceItem({
     this.id,
@@ -15,6 +17,8 @@ class InvoiceItem {
     required this.unit,
     required this.quantity,
     required this.unitPrice,
+    this.isQualityReturn = false,
+    this.isExpirationReturn = false,
   });
 
   double get subtotal => quantity * unitPrice;
@@ -35,6 +39,12 @@ class InvoiceItem {
         unit: json['unit'],
         quantity: (json['quantity'] as num).toDouble(),
         unitPrice: (json['unit_price'] as num).toDouble(),
+        isQualityReturn: (json['quality_return'] as bool?) ??
+            (json['devolucion_calidad'] as bool?) ??
+            false,
+        isExpirationReturn: (json['expiration_return'] as bool?) ??
+            (json['devolucion_vencimiento'] as bool?) ??
+            false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -44,6 +54,8 @@ class InvoiceItem {
         'unit': unit,
         'quantity': quantity,
         'unit_price': unitPrice,
+        'quality_return': isQualityReturn,
+        'expiration_return': isExpirationReturn,
       };
 
   InvoiceItem copyWith({
@@ -53,6 +65,8 @@ class InvoiceItem {
     String? unit,
     double? quantity,
     double? unitPrice,
+    bool? isQualityReturn,
+    bool? isExpirationReturn,
   }) =>
       InvoiceItem(
         id: id ?? this.id,
@@ -61,5 +75,7 @@ class InvoiceItem {
         unit: unit ?? this.unit,
         quantity: quantity ?? this.quantity,
         unitPrice: unitPrice ?? this.unitPrice,
+        isQualityReturn: isQualityReturn ?? this.isQualityReturn,
+        isExpirationReturn: isExpirationReturn ?? this.isExpirationReturn,
       );
 }

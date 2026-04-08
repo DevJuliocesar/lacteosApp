@@ -20,6 +20,8 @@ class OperarioInvoiceEditScreen extends StatefulWidget {
       _OperarioInvoiceEditScreenState();
 }
 
+enum _ReturnReason { none, quality, expiration }
+
 class _OperarioInvoiceEditScreenState extends State<OperarioInvoiceEditScreen> {
   final _clientCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -230,7 +232,15 @@ class _OperarioInvoiceEditScreenState extends State<OperarioInvoiceEditScreen> {
           if (ix >= 0) {
             final ex = _items[ix];
             _items[ix] =
-                ex.copyWith(quantity: ex.quantity + added.quantity);
+                ex.copyWith(
+              quantity: ex.quantity + added.quantity,
+              isQualityReturn: added.isQualityReturn
+                  ? true
+                  : (added.isExpirationReturn ? false : ex.isQualityReturn),
+              isExpirationReturn: added.isExpirationReturn
+                  ? true
+                  : (added.isQualityReturn ? false : ex.isExpirationReturn),
+            );
           } else {
             _items.add(added);
           }
@@ -364,7 +374,9 @@ class _OperarioInvoiceEditScreenState extends State<OperarioInvoiceEditScreen> {
                       title: Text(item.productName),
                       subtitle: Text(
                         '${item.quantity} ${item.unit}  ×  \$${item.unitPrice.toStringAsFixed(2)} '
-                        '= \$${item.subtotal.toStringAsFixed(2)}',
+                        '= \$${item.subtotal.toStringAsFixed(2)}'
+                        '${item.isQualityReturn ? ' • Devolución calidad' : ''}'
+                        '${item.isExpirationReturn ? ' • Devolución vencimiento' : ''}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -436,6 +448,7 @@ class _EditAddProductSheetState extends State<_EditAddProductSheet> {
   Product? _selected;
   final _qtyCtrl = TextEditingController(text: '1');
   String? _error;
+  _ReturnReason _returnReason = _ReturnReason.none;
 
   @override
   void dispose() {
@@ -481,6 +494,30 @@ class _EditAddProductSheetState extends State<_EditAddProductSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() => _error = null),
           ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.none,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Sin devolución'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.quality,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Devolución calidad'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.expiration,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Devolución vencimiento'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -516,6 +553,9 @@ class _EditAddProductSheetState extends State<_EditAddProductSheet> {
                     unit: p.unit,
                     quantity: qty,
                     unitPrice: p.salePrice,
+                    isQualityReturn: _returnReason == _ReturnReason.quality,
+                    isExpirationReturn:
+                        _returnReason == _ReturnReason.expiration,
                   ),
                 );
               },

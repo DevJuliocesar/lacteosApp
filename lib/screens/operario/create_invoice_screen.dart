@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:lacteos_app/models/invoice_item.dart';
 import 'package:lacteos_app/models/product.dart';
 import 'package:lacteos_app/models/ruta_dia.dart';
 import 'package:lacteos_app/providers/invoices_provider.dart';
@@ -127,7 +128,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: Text(item.productName),
                         subtitle: Text(
-                            '${item.quantity} ${item.unit}  ×  \$${item.unitPrice.toStringAsFixed(2)}'),
+                            '${item.quantity} ${item.unit}  ×  \$${item.unitPrice.toStringAsFixed(2)}'
+                            '${item.isQualityReturn ? ' • Devolución calidad' : ''}'
+                            '${item.isExpirationReturn ? ' • Devolución vencimiento' : ''}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -212,10 +215,13 @@ class _AddProductSheet extends StatefulWidget {
   State<_AddProductSheet> createState() => _AddProductSheetState();
 }
 
+enum _ReturnReason { none, quality, expiration }
+
 class _AddProductSheetState extends State<_AddProductSheet> {
   Product? _selected;
   final _qtyCtrl = TextEditingController(text: '1');
   String? _error;
+  _ReturnReason _returnReason = _ReturnReason.none;
 
   @override
   void dispose() {
@@ -254,6 +260,30 @@ class _AddProductSheetState extends State<_AddProductSheet> {
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
           ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.none,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Sin devolución'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.quality,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Devolución calidad'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
+          RadioListTile<_ReturnReason>(
+            value: _ReturnReason.expiration,
+            groupValue: _returnReason,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Devolución vencimiento'),
+            onChanged: (value) =>
+                setState(() => _returnReason = value ?? _ReturnReason.none),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -285,9 +315,19 @@ class _AddProductSheetState extends State<_AddProductSheet> {
                   }
                 }
 
-                context
-                    .read<InvoicesProvider>()
-                    .addToDraft(_selected!, qty);
+                final selected = _selected!;
+                context.read<InvoicesProvider>().addItemToDraft(
+                      InvoiceItem(
+                        productId: selected.id,
+                        productName: selected.name,
+                        unit: selected.unit,
+                        quantity: qty,
+                        unitPrice: selected.salePrice,
+                        isQualityReturn: _returnReason == _ReturnReason.quality,
+                        isExpirationReturn:
+                            _returnReason == _ReturnReason.expiration,
+                      ),
+                    );
                 Navigator.pop(context);
               },
               child: const Text('Agregar'),

@@ -48,9 +48,31 @@ class InvoicesProvider extends ChangeNotifier {
         unit: existing.unit,
         quantity: existing.quantity + quantity,
         unitPrice: existing.unitPrice,
+        isQualityReturn: existing.isQualityReturn,
+        isExpirationReturn: existing.isExpirationReturn,
       );
     } else {
       _draftItems[product.id] = InvoiceItem.fromProduct(product, quantity);
+    }
+    notifyListeners();
+  }
+
+  void addItemToDraft(InvoiceItem item) {
+    if (_draftItems.containsKey(item.productId)) {
+      final existing = _draftItems[item.productId]!;
+      final isQualityReturn = item.isQualityReturn
+          ? true
+          : (item.isExpirationReturn ? false : existing.isQualityReturn);
+      final isExpirationReturn = item.isExpirationReturn
+          ? true
+          : (item.isQualityReturn ? false : existing.isExpirationReturn);
+      _draftItems[item.productId] = existing.copyWith(
+        quantity: existing.quantity + item.quantity,
+        isQualityReturn: isQualityReturn,
+        isExpirationReturn: isExpirationReturn,
+      );
+    } else {
+      _draftItems[item.productId] = item;
     }
     notifyListeners();
   }

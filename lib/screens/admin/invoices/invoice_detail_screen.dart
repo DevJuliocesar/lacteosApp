@@ -57,7 +57,9 @@ class InvoiceDetailScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(item.productName),
               subtitle: Text(
-                  '${item.quantity} ${item.unit}  ×  \$${item.unitPrice.toStringAsFixed(2)}'),
+                  '${item.quantity} ${item.unit}  ×  \$${item.unitPrice.toStringAsFixed(2)}'
+                  '${item.isQualityReturn ? ' • Devolución calidad' : ''}'
+                  '${item.isExpirationReturn ? ' • Devolución vencimiento' : ''}'),
               trailing: Text('\$${item.subtotal.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
