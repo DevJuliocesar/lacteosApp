@@ -466,7 +466,7 @@ class _EditAddProductSheetState extends State<_EditAddProductSheet> {
                 .map((p) => DropdownMenuItem(
                       value: p,
                       child: Text(
-                          '${p.name} — \$${p.price.toStringAsFixed(2)}/${p.unit}'),
+                          '${p.name} — \$${p.salePrice.toStringAsFixed(2)}/${p.unit}'),
                     ))
                 .toList(),
             onChanged: (p) => setState(() {
@@ -515,7 +515,7 @@ class _EditAddProductSheetState extends State<_EditAddProductSheet> {
                     productName: p.name,
                     unit: p.unit,
                     quantity: qty,
-                    unitPrice: p.price,
+                    unitPrice: p.salePrice,
                   ),
                 );
               },

@@ -25,7 +25,7 @@ class InvoiceItem {
         productName: product.name,
         unit: product.unit,
         quantity: quantity,
-        unitPrice: product.price,
+        unitPrice: product.salePrice,
       );
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) => InvoiceItem(

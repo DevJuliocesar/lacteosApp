@@ -242,7 +242,8 @@ class _AddProductSheetState extends State<_AddProductSheet> {
             items: widget.products
                 .map((p) => DropdownMenuItem(
                     value: p,
-                    child: Text('${p.name} — \$${p.price.toStringAsFixed(2)}/${p.unit}')))
+                    child: Text(
+                        '${p.name} — \$${p.salePrice.toStringAsFixed(2)}/${p.unit}')))
                 .toList(),
             onChanged: (p) => setState(() => _selected = p),
           ),
